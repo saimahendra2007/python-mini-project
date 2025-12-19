@@ -1,0 +1,268 @@
+# =====================================================
+# PYTHON MINI PROJECTS (ALL IN ONE FILE)
+# 1. Prime Number Checker & Visualizer (GUI)
+# 2. ASCII Art Generator (GUI)
+# 3. Magic Square Generator (Console)
+# 4. Sudoku Generator (GUI)
+# =====================================================
+
+import wx
+import random
+from PIL import Image
+import numpy as np
+
+# =====================================================
+# 1. PRIME NUMBER CHECKER & VISUALIZER
+# =====================================================
+
+def is_prime(n):
+    if n < 2:
+        return False
+    for i in range(2, int(n**0.5) + 1):
+        if n % i == 0:
+            return False
+    return True
+
+class PrimeApp(wx.Frame):
+    def __init__(self):
+        super().__init__(None, title="Prime Finder & Visualizer", size=(370, 460))
+        panel = wx.Panel(self)
+        panel.SetBackgroundColour("#F3E8FF")
+
+        wx.StaticText(panel, label="Enter N:", pos=(20, 20))
+        self.txt = wx.TextCtrl(panel, pos=(90, 15), size=(80, -1))
+
+        wx.Button(panel, label="Check + Visualize", pos=(180, 13)).Bind(wx.EVT_BUTTON, self.process)
+
+        self.check_label = wx.StaticText(panel, label="", pos=(20, 55))
+
+        self.list_box = wx.TextCtrl(panel, style=wx.TE_MULTILINE | wx.TE_READONLY,
+                                    pos=(20, 80), size=(320, 100))
+
+        self.canvas = wx.Panel(panel, pos=(20, 190), size=(320, 240))
+        self.canvas.Bind(wx.EVT_PAINT, self.draw)
+
+        self.primes = []
+        self.Show()
+
+    def process(self, evt):
+        text = self.txt.GetValue()
+        if not text.isdigit():
+            self.check_label.SetLabel("Enter a valid number ❌")
+            self.primes = []
+            self.canvas.Refresh()
+            return
+
+        n = int(text)
+
+        self.check_label.SetLabel(
+            f"{n} is PRIME ✔" if is_prime(n) else f"{n} is NOT prime ✘"
+        )
+
+        self.primes = [i for i in range(2, n + 1) if is_prime(i)]
+        self.list_box.SetValue("Prime numbers:\n" + ", ".join(map(str, self.primes)))
+        self.canvas.Refresh()
+
+    def draw(self, event):
+        dc = wx.PaintDC(self.canvas)
+        dc.Clear()
+
+        if not self.primes:
+            dc.DrawText("No primes yet.", 10, 10)
+            return
+
+        w, h = self.canvas.GetSize()
+        bar_w = max(5, w // len(self.primes))
+        max_p = max(self.primes)
+
+        for i, p in enumerate(self.primes):
+            bar_h = int((p / max_p) * (h - 20))
+            dc.SetBrush(wx.Brush("#7DB7FF"))
+            dc.DrawRectangle(i * bar_w, h - bar_h - 5, bar_w - 2, bar_h)
+
+def run_prime():
+    app = wx.App(False)
+    PrimeApp()
+    app.MainLoop()
+
+# =====================================================
+# 2. ASCII ART GENERATOR
+# =====================================================
+
+ASCII_CHARS = "@%#*+=-:. "
+
+def image_to_ascii(image, new_width=120):
+    w, h = image.size
+    new_height = int((h / w) * new_width * 0.55)
+    image = image.resize((new_width, new_height)).convert("L")
+    pixels = image.getdata()
+    chars = "".join(ASCII_CHARS[p * len(ASCII_CHARS) // 256] for p in pixels)
+    return "\n".join(chars[i:i + new_width] for i in range(0, len(chars), new_width))
+
+class ASCIIFrame(wx.Frame):
+    def __init__(self):
+        super().__init__(None, title="ASCII Art Generator", size=(900, 700))
+        self.image = None
+
+        panel = wx.Panel(self)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        btn = wx.Button(panel, label="Load Image")
+        btn.Bind(wx.EVT_BUTTON, self.load)
+        vbox.Add(btn, 0, wx.ALL | wx.CENTER, 5)
+
+        self.slider = wx.Slider(panel, 120, 40, 200)
+        self.slider.Bind(wx.EVT_SLIDER, self.update)
+        vbox.Add(self.slider, 0, wx.EXPAND | wx.ALL, 10)
+
+        self.txt = wx.TextCtrl(panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL)
+        self.txt.SetFont(wx.Font(10, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        vbox.Add(self.txt, 1, wx.EXPAND | wx.ALL, 10)
+
+        panel.SetSizer(vbox)
+        self.Show()
+
+    def load(self, e):
+        dlg = wx.FileDialog(self, wildcard="*.png;*.jpg;*.jpeg")
+        if dlg.ShowModal() == wx.ID_OK:
+            self.image = Image.open(dlg.GetPath())
+            self.update(None)
+
+    def update(self, e):
+        if self.image:
+            self.txt.SetValue(image_to_ascii(self.image, self.slider.GetValue()))
+
+def run_ascii():
+    app = wx.App(False)
+    ASCIIFrame()
+    app.MainLoop()
+
+# =====================================================
+# 3. MAGIC SQUARE GENERATOR
+# =====================================================
+
+def generate_magic_square(n):
+    if n % 2 == 0 or n < 3:
+        raise ValueError("Order must be an odd integer >= 3")
+
+    magic = [[0] * n for _ in range(n)]
+
+    i, j = 0, n // 2
+
+    for num in range(1, n * n + 1):
+        magic[i][j] = num
+        old_i, old_j = i, j
+        i = (i - 1) % n
+        j = (j + 1) % n
+        if magic[i][j] != 0:
+            i = (old_i + 1) % n
+            j = old_j
+
+    return magic
+
+
+def print_magic_square(square):
+    n = len(square)
+    magic_constant = n * (n * n + 1) // 2
+    print("Magic Square of order ",n," Magic Sum =",magic_constant,end='\n')
+
+    for row in square:
+        for val in row:
+            print(f"{val:4}", end="")
+        print()
+
+n = int(input("Enter an odd number (>=3) for magic square order: "))
+magic_square = generate_magic_square(n)
+print_magic_square(magic_square)
+
+# =====================================================
+# 4. SUDOKU GENERATOR
+# =====================================================
+
+grid = [[0]*9 for _ in range(9)]
+
+def valid(r, c, n):
+    for i in range(9):
+        if grid[r][i] == n or grid[i][c] == n:
+            return False
+    sr, sc = (r//3)*3, (c//3)*3
+    for i in range(3):
+        for j in range(3):
+            if grid[sr+i][sc+j] == n:
+                return False
+    return True
+
+def solve():
+    for r in range(9):
+        for c in range(9):
+            if grid[r][c] == 0:
+                nums = list(range(1, 10))
+                random.shuffle(nums)
+                for n in nums:
+                    if valid(r, c, n):
+                        grid[r][c] = n
+                        if solve():
+                            return True
+                        grid[r][c] = 0
+                return False
+    return True
+
+def run_sudoku():
+    app = wx.App()
+    frame = wx.Frame(None, title="Sudoku", size=(280, 340))
+    panel = wx.Panel(frame)
+
+    cells = [[wx.TextCtrl(panel, style=wx.TE_CENTER) for _ in range(9)] for _ in range(9)]
+    gs = wx.GridSizer(9, 9, 2, 2)
+
+    for r in range(9):
+        for c in range(9):
+            gs.Add(cells[r][c], 1, wx.EXPAND)
+
+    def gen(e):
+        for r in range(9):
+            for c in range(9):
+                grid[r][c] = 0
+        solve()
+        for r in range(9):
+            for c in range(9):
+                cells[r][c].SetValue(str(grid[r][c]))
+
+    btn = wx.Button(panel, label="Generate")
+    btn.Bind(wx.EVT_BUTTON, gen)
+
+    s = wx.BoxSizer(wx.VERTICAL)
+    s.Add(gs, 1, wx.EXPAND | wx.ALL, 10)
+    s.Add(btn, 0, wx.CENTER | wx.BOTTOM, 10)
+    panel.SetSizer(s)
+
+    frame.Show()
+    app.MainLoop()
+
+# =====================================================
+# MAIN MENU
+# =====================================================
+
+while True:
+    print("""
+==== PYTHON MINI PROJECTS ====
+1. Prime Number Visualizer (GUI)
+2. ASCII Art Generator (GUI)
+3. Magic Square Generator
+4. Sudoku Generator (GUI)
+5. Exit
+""")
+    ch = input("Enter choice: ")
+
+    if ch == "1":
+        run_prime()
+    elif ch == "2":
+        run_ascii()
+    elif ch == "3":
+        magic_square()
+    elif ch == "4":
+        run_sudoku()
+    elif ch == "5":
+        break
+    else:
+        print("Invalid choice")
