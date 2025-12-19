@@ -89,59 +89,143 @@ def run_prime():
 # 2. ASCII ART GENERATOR
 # =====================================================
 
+
+
 ASCII_CHARS = "@%#*+=-:. "
 
-def image_to_ascii(image, new_width=120):
-    w, h = image.size
-    new_height = int((h / w) * new_width * 0.55)
-    image = image.resize((new_width, new_height)).convert("L")
+
+def image_to_ascii(image, new_width=100):
+    width, height = image.size
+    aspect_ratio = height / width
+    new_height = int(aspect_ratio * new_width * 0.55)
+
+    image = image.resize((new_width, new_height))
+    image = image.convert("L")
+
     pixels = image.getdata()
     chars = "".join(ASCII_CHARS[p * len(ASCII_CHARS) // 256] for p in pixels)
-    return "\n".join(chars[i:i + new_width] for i in range(0, len(chars), new_width))
 
-class ASCIIFrame(wx.Frame):
+    ascii_image = "\n".join(
+        chars[i:i + new_width] for i in range(0, len(chars), new_width)
+    )
+    return ascii_image
+
+
+class MainFrame(wx.Frame):
     def __init__(self):
-        super().__init__(None, title="ASCII Art Generator", size=(900, 700))
-        self.image = None
+        super().__init__(None, title="ASCII Art Generator", size=(950, 750))
+        self.loaded_image = None
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        btn = wx.Button(panel, label="Load Image")
-        btn.Bind(wx.EVT_BUTTON, self.load)
-        vbox.Add(btn, 0, wx.ALL | wx.CENTER, 5)
+        
+        hbox_buttons = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.slider = wx.Slider(panel, 120, 40, 200)
-        self.slider.Bind(wx.EVT_SLIDER, self.update)
-        vbox.Add(self.slider, 0, wx.EXPAND | wx.ALL, 10)
+        self.load_btn = wx.Button(panel, label="Load Image")
+        self.load_btn.Bind(wx.EVT_BUTTON, self.on_load_image)
+        hbox_buttons.Add(self.load_btn, 0, wx.ALL, 5)
 
-        self.txt = wx.TextCtrl(panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL)
-        self.txt.SetFont(wx.Font(10, wx.FONTFAMILY_TELETYPE, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-        vbox.Add(self.txt, 1, wx.EXPAND | wx.ALL, 10)
+        self.clear_btn = wx.Button(panel, label="Clear")
+        self.clear_btn.Bind(wx.EVT_BUTTON, self.on_clear)
+        hbox_buttons.Add(self.clear_btn, 0, wx.ALL, 5)
+
+        vbox.Add(hbox_buttons, 0, wx.CENTER)
+
+        
+        self.slider_label = wx.StaticText(panel, label="ASCII Width: 120")
+        vbox.Add(self.slider_label, 0, wx.LEFT | wx.TOP, 10)
+
+        
+        self.width_slider = wx.Slider(
+            panel,
+            value=120,
+            minValue=40,
+            maxValue=200,
+            style=wx.SL_HORIZONTAL
+        )
+        self.width_slider.Bind(wx.EVT_SLIDER, self.on_slider_change)
+        vbox.Add(self.width_slider, 0, wx.EXPAND | wx.ALL, 10)
+
+        
+        self.text_ctrl = wx.TextCtrl(
+            panel,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.HSCROLL | wx.TE_DONTWRAP
+        )
+
+        font = wx.Font(
+            10,
+            wx.FONTFAMILY_TELETYPE,
+            wx.FONTSTYLE_NORMAL,
+            wx.FONTWEIGHT_NORMAL
+        )
+        self.text_ctrl.SetFont(font)
+
+        vbox.Add(self.text_ctrl, 1, wx.EXPAND | wx.ALL, 10)
 
         panel.SetSizer(vbox)
-        self.Show()
 
-    def load(self, e):
-        dlg = wx.FileDialog(self, wildcard="*.png;*.jpg;*.jpeg")
-        if dlg.ShowModal() == wx.ID_OK:
-            self.image = Image.open(dlg.GetPath())
-            self.update(None)
+    def on_load_image(self, event):
+        dialog = wx.FileDialog(
+            self,
+            "Select image",
+            wildcard="Image files (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg"
+        )
 
-    def update(self, e):
-        if self.image:
-            self.txt.SetValue(image_to_ascii(self.image, self.slider.GetValue()))
+        if dialog.ShowModal() == wx.ID_OK:
+            path = dialog.GetPath()
+            ext = path.lower().split(".")[-1]
 
-def run_ascii():
-    app = wx.App(False)
-    ASCIIFrame()
-    app.MainLoop()
+            valid_exts = ["png", "jpg", "jpeg"]
+
+            if ext not in valid_exts:
+                wx.MessageBox(
+                    "Invalid input!\nPlease select a PNG, JPG, or JPEG file.",
+                    "Invalid Input",
+                    wx.ICON_ERROR
+                )
+                return
+
+            try:
+                self.loaded_image = Image.open(path)
+                width = self.width_slider.GetValue()
+                ascii_art = image_to_ascii(self.loaded_image, new_width=width)
+                self.text_ctrl.SetValue(ascii_art)
+
+            except Exception as e:
+                wx.MessageBox(str(e), "Error", wx.ICON_ERROR)
+
+    def on_slider_change(self, event):
+        width = self.width_slider.GetValue()
+        self.slider_label.SetLabel(f"ASCII Width: {width}")
+
+        if self.loaded_image is not None:
+            ascii_art = image_to_ascii(self.loaded_image, new_width=width)
+            self.text_ctrl.SetValue(ascii_art)
+
+    def on_clear(self, event):
+        self.text_ctrl.SetValue("")
+        self.loaded_image = None
+
+
+class MyApp(wx.App):
+    def OnInit(self):
+        frame = MainFrame()
+        frame.Show()
+        return True
+
+
+if __name__ == "__main__":
+    MyApp().MainLoop()
 
 # =====================================================
 # 3. MAGIC SQUARE GENERATOR
 # =====================================================
 
-def generate_magic_square(n):
+
+
+
+def magic_square(n):
     if n % 2 == 0 or n < 3:
         raise ValueError("Order must be an odd integer >= 3")
 
@@ -161,19 +245,73 @@ def generate_magic_square(n):
     return magic
 
 
-def print_magic_square(square):
-    n = len(square)
-    magic_constant = n * (n * n + 1) // 2
-    print("Magic Square of order ",n," Magic Sum =",magic_constant,end='\n')
+# ---------- GUI FRAME ----------
+class MagicSquareFrame(wx.Frame):
+    def __init__(self):
+        super().__init__(None, title="Magic Square Generator", size=(400,400))
+        panel = wx.Panel(self)
 
-    for row in square:
-        for val in row:
-            print(f"{val:4}", end="")
-        print()
+        vbox = wx.BoxSizer(wx.VERTICAL)
 
-n = int(input("Enter an odd number (>=3) for magic square order: "))
-magic_square = generate_magic_square(n)
-print_magic_square(magic_square)
+        title = wx.StaticText(panel, label="Magic Square Generator")
+        title.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT,
+                              wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        vbox.Add(title, flag=wx.ALIGN_CENTER | wx.TOP, border=15)
+
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        hbox.Add(wx.StaticText(panel, label="Enter Order (odd ≥ 3): "),
+                 flag=wx.ALIGN_CENTER_VERTICAL)
+
+        self.input_n = wx.TextCtrl(panel, size=(80, -1))
+        hbox.Add(self.input_n, flag=wx.LEFT, border=10)
+
+        vbox.Add(hbox, flag=wx.ALIGN_CENTER | wx.TOP, border=20)
+
+        btn = wx.Button(panel, label="Generate Magic Square")
+        btn.Bind(wx.EVT_BUTTON, self.on_generate)
+        vbox.Add(btn, flag=wx.ALIGN_CENTER | wx.TOP, border=15)
+
+        self.output = wx.TextCtrl(
+            panel, style=wx.TE_MULTILINE | wx.TE_READONLY
+        )
+        vbox.Add(self.output, proportion=1,
+                 flag=wx.EXPAND | wx.ALL, border=15)
+
+        panel.SetSizer(vbox)
+
+    def on_generate(self, event):
+        self.output.Clear()
+        try:
+            n = int(self.input_n.GetValue())
+            square = magic_square(n)
+            magic_constant = n * (n * n + 1) // 2
+
+            self.output.AppendText(
+                f"Magic Square of Order {n}\n"
+                f"Magic Sum = {magic_constant}\n\n"
+            )
+
+            for row in square:
+                for val in row:
+                    self.output.AppendText(f"{val:4}")
+                self.output.AppendText("\n")
+
+        except ValueError as e:
+            wx.MessageBox(str(e), "Error", wx.ICON_ERROR)
+
+
+# ---------- APP ----------
+class MagicSquareApp(wx.App):
+    def OnInit(self):
+        frame = MagicSquareFrame()
+        frame.Show()
+        return True
+
+
+if __name__ == "__main__":
+    app = MagicSquareApp()
+    app.MainLoop()
+
 
 # =====================================================
 # 4. SUDOKU GENERATOR
@@ -248,7 +386,7 @@ while True:
 ==== PYTHON MINI PROJECTS ====
 1. Prime Number Visualizer (GUI)
 2. ASCII Art Generator (GUI)
-3. Magic Square Generator
+3. Magic Square Generator(GUI)
 4. Sudoku Generator (GUI)
 5. Exit
 """)
